@@ -5,7 +5,7 @@ BIN_DIR="usr/games"
 LIB_DIR="usr/lib/games/ninix-kagari/aosora"
 DOC_DIR="usr/share/doc/aosora"
 
-VERSION="0.2.9"
+VERSION="0.4.0"
 
 make -j
 
