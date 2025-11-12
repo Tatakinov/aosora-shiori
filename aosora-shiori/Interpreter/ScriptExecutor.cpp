@@ -1028,8 +1028,16 @@ namespace sakura {
 
 		for (const std::string& funcName : node.GetNames()) {
 
-			//グローバルから探す(ローカル指定も可能にできると良い?)
-			ScriptValueRef item = executeContext.GetInterpreter().GetUnitVariable(funcName, node.GetSourceMetadata()->GetScriptUnit()->GetUnit());
+			ScriptValueRef item = nullptr;
+			if (executeContext.GetStack().IsRootCall()) {
+				//ルート空間を実行している間はユニット変数を対象にする
+				item = executeContext.GetInterpreter().GetUnitVariable(funcName, node.GetSourceMetadata()->GetScriptUnit()->GetUnit());
+			}
+			else {
+				//そうでない場合は現在ブロックのローカル変数を対象にする
+				item = executeContext.GetBlockScope()->GetLocalVariable(funcName);
+			}
+			
 			OverloadedFunctionList* functionList = nullptr;
 			
 			if (item != nullptr) {
@@ -1045,7 +1053,13 @@ namespace sakura {
 				Reference<OverloadedFunctionList> funcList = executeContext.GetInterpreter().CreateNativeObject<OverloadedFunctionList>();
 				funcList->SetName(funcName);
 				funcList->Add(node.GetFunction(), node.GetConditionNode(), executeContext.GetBlockScope());
-				executeContext.GetInterpreter().SetUnitVariable(funcName, ScriptValue::Make(funcList), node.GetSourceMetadata()->GetScriptUnit()->GetUnit());
+
+				if (executeContext.GetStack().IsRootCall()) {
+					executeContext.GetInterpreter().SetUnitVariable(funcName, ScriptValue::Make(funcList), node.GetSourceMetadata()->GetScriptUnit()->GetUnit());
+				}
+				else {
+					executeContext.GetBlockScope()->SetLocalVariable(funcName, ScriptValue::Make(funcList));
+				}
 			}
 		}
 
@@ -1107,6 +1121,8 @@ namespace sakura {
 	//メンバ取得
 	ScriptValueRef ScriptExecutor::ExecuteResolveMember(const ASTNodeResolveMember& node, ScriptExecuteContext& executeContext) {
 
+		//TODO: ASTで基本型メソッドを検索してしまうとリフレクション経由でこのあたりの情報にたどりつけないので基本形型にGet相当を呼び出した時をサポートしたほうがよい
+
 		//thisオブジェクトの取り出し
 		ScriptValueRef r = ExecuteInternal(*node.GetThisNode(), executeContext);
 		if (executeContext.RequireLeave()) {
@@ -1146,10 +1162,13 @@ namespace sakura {
 			}
 		}
 
-		//汎用メソッド類
-		auto generalResult = PrimitiveMethod::GetGeneralMember(r, key, executeContext);
-		if (generalResult != nullptr) {
-			return generalResult;
+		//TODO: ScriptObjectは内部でこれを検索しているので省略している。もっといい方法をとりたい。
+		if (!executeContext.GetInterpreter().InstanceIs<ScriptObject>(r)) {
+			//汎用メソッド類
+			auto generalResult = PrimitiveMethod::GetGeneralMember(r, key, executeContext);
+			if (generalResult != nullptr) {
+				return generalResult;
+			}
 		}
 
 		return ScriptValue::Null;
@@ -1442,6 +1461,15 @@ namespace sakura {
 		units.insert(decltype(units)::value_type(unitName, UnitData()));
 	}
 
+	//ユニット情報を取得
+	const UnitData* ScriptInterpreter::FindUnitData(const std::string& unitName) {
+		auto it = units.find(unitName);
+		if (it != units.end()) {
+			return &it->second;
+		}
+		return nullptr;
+	}
+
 	//ユニット取得
 	Reference<UnitObject> ScriptInterpreter::GetUnit(const std::string& unitName) {
 
@@ -1554,12 +1582,12 @@ namespace sakura {
 	}
 
 	//ルートステートメント実行
-	ToStringFunctionCallResult ScriptInterpreter::Execute(const ConstASTNodeRef& node, bool toStringResult) {
+	ToStringFunctionCallResult ScriptInterpreter::Execute(const ConstASTNodeRef& node, bool toStringResult, bool isRootCall) {
 
 		//ユニットを登録
 		RegisterUnit(node->GetScriptUnit()->GetUnit());
 
-		ScriptInterpreterStack rootStack;
+		ScriptInterpreterStack rootStack(isRootCall);
 		Reference<BlockScope> rootBlock = CreateNativeObject<BlockScope>(nullptr);
 		ScriptExecuteContext executeContext(*this, rootStack, rootBlock);
 		ScriptExecutor::ExecuteASTNode(*node, executeContext);
@@ -1592,7 +1620,7 @@ namespace sakura {
 		}
 
 		//ASTにユニットエイリアスをインポートしないといけない
-		auto ast = ASTParser::ParseExpression(tokens, &importSourceMeta);
+		auto ast = ASTParser::ParseExpression(tokens, &importSourceMeta, true);
 
 		if (ast->error != nullptr) {
 			result.error = ast->error;
@@ -1626,6 +1654,7 @@ namespace sakura {
 		ImportClass(NativeClass::Make<ScriptError>("Error", &ScriptError::CreateObject));
 		ImportClass(NativeClass::Make<RuntimeError>("RuntimeError", ClassPath("Error")));
 		ImportClass(NativeClass::Make<PluginError>("PluginError", ClassPath("Error")));
+		ImportClass(NativeClass::Make<AssertError>("AssertError", ClassPath("Error")));
 		ImportClass(NativeClass::Make<Time>("Time"));
 		ImportClass(NativeClass::Make<SaveData>("Save"));
 		ImportClass(NativeClass::Make<OverloadedFunctionList>("OverloadedFunctionList"));
@@ -2142,7 +2171,7 @@ namespace sakura {
 		}
 	}
 
-	std::vector<CallStackInfo> ScriptExecuteContext::MakeStackTrace(const ASTNodeBase& currentAstNode, const Reference<BlockScope>& callingBlockScope, const std::string & currentFuncName) {
+	std::vector<CallStackInfo> ScriptExecuteContext::MakeStackTrace(const ASTNodeBase& currentAstNode, const Reference<BlockScope>& callingBlockScope, const std::string& currentFuncName) {
 		//現在実行中のスタックフレームは引数から位置を取得
 		std::vector<CallStackInfo> stackInfo;
 		{

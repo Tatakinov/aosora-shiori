@@ -160,6 +160,102 @@ namespace sakura {
 
 	//呼出順のリストを作成
 	//あらかじめシャッフルしておいて上から順に見ることで重複回避ということにする
+
+	void OverloadedFunctionList::ScriptReturnThisFunc(const FunctionRequest& request, FunctionResponse& response) {
+		response.SetReturnValue(request.GetThisValue());
+	}
+
+	void OverloadedFunctionList::ScriptUseNoOverwrappedRandom(const FunctionRequest& request, FunctionResponse& response) {
+		auto* self = request.GetInterpreter().InstanceAs<OverloadedFunctionList>(request.GetThisValue());
+		if (self != nullptr) {
+			self->SetSelectorMode(SelectorMode::NoOverwrappedRandom);
+		}
+	}
+
+	void OverloadedFunctionList::ScriptUseOverwrappedRandom(const FunctionRequest& request, FunctionResponse& response) {
+		auto* self = request.GetInterpreter().InstanceAs<OverloadedFunctionList>(request.GetThisValue());
+		if (self != nullptr) {
+			self->SetSelectorMode(SelectorMode::OverwrappedRandom);
+		}
+	}
+
+	void OverloadedFunctionList::ScriptIsNoOverwrappedRandom(const FunctionRequest& request, FunctionResponse& response) {
+		auto* self = request.GetInterpreter().InstanceAs<OverloadedFunctionList>(request.GetThisValue());
+		if (self != nullptr) {
+			response.SetReturnValue(ScriptValue::Make(self->GetSelectorMode() != SelectorMode::NoOverwrappedRandom));
+		}
+		response.SetReturnValue(ScriptValue::False);
+	}
+
+	void OverloadedFunctionList::ScriptIsOverwrappedRandom(const FunctionRequest& request, FunctionResponse& response) {
+		auto* self = request.GetInterpreter().InstanceAs<OverloadedFunctionList>(request.GetThisValue());
+		if (self != nullptr) {
+			response.SetReturnValue(ScriptValue::Make(self->GetSelectorMode() != SelectorMode::OverwrappedRandom));
+		}
+		response.SetReturnValue(ScriptValue::False);
+	}
+
+	void OverloadedFunctionList::ShuffleOverwrap(const FunctionRequest& request, FunctionResponse& response) {
+		auto* self = request.GetInterpreter().InstanceAs<OverloadedFunctionList>(request.GetThisValue());
+		if (self != nullptr) {
+			//callOrderがクリアされて呼び出し順が再生成されるようにする
+			self->callOrder.clear();
+		}
+	}
+
+	void OverloadedFunctionList::ScriptClear(const FunctionRequest& request, FunctionResponse& response) {
+		auto* self = request.GetInterpreter().InstanceAs<OverloadedFunctionList>(request.GetThisValue());
+		if (self != nullptr) {
+			//内部リストをクリア
+			self->callOrder.clear();
+			self->functions.clear();
+		}
+	}
+
+	void OverloadedFunctionList::ScriptAdd(const FunctionRequest& request, FunctionResponse& response) {
+
+		//内容を追加
+		if (request.GetArgumentCount() < 1) {
+			return;
+		}
+
+		auto* self = request.GetInterpreter().InstanceAs<OverloadedFunctionList>(request.GetThisValue());
+		if (self != nullptr) {
+			ScriptValueRef value = request.GetArgument(0);
+			ScriptValueRef cond = nullptr;
+			if (request.GetArgumentCount() >= 2) {
+				cond = request.GetArgument(1);
+			}
+
+			self->Add(value, cond);
+		}
+	}
+
+	void OverloadedFunctionList::ScriptAddRange(const FunctionRequest& request, FunctionResponse& response) {
+
+		//内容を追加
+		if (request.GetArgumentCount() < 1) {
+			return;
+		}
+
+		auto* self = request.GetInterpreter().InstanceAs<OverloadedFunctionList>(request.GetThisValue());
+		if (self != nullptr) {
+			auto* value = request.GetInterpreter().InstanceAs<ScriptArray>(request.GetArgument(0));
+			if (value == nullptr) {
+				return;
+			}
+
+			ScriptValueRef cond = nullptr;
+			if (request.GetArgumentCount() >= 2) {
+				cond = request.GetArgument(1);
+			}
+
+			for (size_t i = 0; i < value->Count(); i++) {
+				self->Add(value->At(i), cond);
+			}
+		}
+	}
+
 	void OverloadedFunctionList::MakeCallorder() {
 		
 		callOrder.resize(functions.size());
@@ -171,18 +267,29 @@ namespace sakura {
 		std::shuffle(callOrder.begin(), callOrder.end(), GetInternalRandom());
 	}
 
-	//関数オーバーロードオブジェクト
 	const OverloadedFunctionList::FunctionItem* OverloadedFunctionList::SelectItemInternal(const FunctionRequest& request, FunctionResponse& response) {
-
 		//アイテムが無い
 		if (functions.empty()) {
 			return nullptr;
 		}
 
+		switch (selectorMode)
+		{
+			case sakura::OverloadedFunctionList::SelectorMode::NoOverwrappedRandom:
+				return SelectItemInternalNoOverwrappedRandom(request, response);
+			case sakura::OverloadedFunctionList::SelectorMode::OverwrappedRandom:
+				return SelectItemInternalOverwrapedRandom(request, response);
+			default:
+				break;
+		}
+		return nullptr;
+	}
+	
+	const OverloadedFunctionList::FunctionItem* OverloadedFunctionList::SelectItemInternalNoOverwrappedRandom(const FunctionRequest& request, FunctionResponse& response) {
+
 		bool isSuffled = false;
 
-		while (true)
-		{
+		while (true) {
 			//重複回避リストの初期化
 			if (callOrder.empty()) {
 				if (!isSuffled) {
@@ -200,23 +307,71 @@ namespace sakura {
 			callOrder.pop_back();
 			auto& item = functions[index];
 
-			//選択したものに条件がついてなければ決定
-			if (item.condition == nullptr) {
+			//条件評価
+			if (ValidateItemCondition(request, response, item)) {
 				return &item;
 			}
-			else {
-				//条件評価
-				//TODO: 評価する場合新しいスタックフレームを使う必要があるかもしれない？
-				auto conditionResult = ScriptExecutor::ExecuteASTNode(*item.condition, request.GetContext());
-				assert(conditionResult != nullptr);
 
-				if (conditionResult->ToBoolean()) {
-					return &item;
-				}
+			//例外が出ている場合キャンセル
+			if (response.IsThrew()) {
+				return nullptr;
 			}
 		}
 
 		return nullptr;
+	}
+
+	const OverloadedFunctionList::FunctionItem* OverloadedFunctionList::SelectItemInternalOverwrapedRandom(const FunctionRequest& request, FunctionResponse& response) {
+		MakeCallorder();
+
+		while (!callOrder.empty()) {
+			//あらかじめシャッフルしたリストから１つ選択する
+			const size_t index = *callOrder.rbegin();
+			callOrder.pop_back();
+			auto& item = functions[index];
+
+			//条件評価
+			if (ValidateItemCondition(request, response, item)) {
+				return &item;
+			}
+
+			//例外が出ている場合キャンセル
+			if (response.IsThrew()) {
+				return nullptr;
+			}
+		}
+		return nullptr;
+	}
+
+	bool OverloadedFunctionList::ValidateItemCondition(const FunctionRequest& request, FunctionResponse& response, const FunctionItem& item) {
+		if (item.condition != nullptr) {
+			//条件評価
+			//TODO: 評価する場合新しいスタックフレームを使う必要があるかもしれない？
+			auto conditionResult = ScriptExecutor::ExecuteASTNode(*item.condition, request.GetContext());
+			assert(conditionResult != nullptr);
+
+			if (conditionResult->ToBoolean()) {
+				return true;
+			}
+		}
+		else if (item.scriptCondition != nullptr && item.scriptCondition->IsObject() && item.scriptCondition->GetObjectRef()->CanCall()) {
+			//条件デリゲートを使用する場合は関数よびだしを実行
+			std::vector<ScriptValueRef> args;
+			FunctionResponse res;
+			request.GetInterpreter().CallFunction(*item.scriptCondition, res, args, request.GetContext(), request.GetContext().GetStack().GetCallingASTNode());
+
+			if (res.IsThrew()) {
+				return false;
+			}
+			else if (res.GetReturnValue() != nullptr && res.GetReturnValue()->ToBoolean()) {
+				return true;
+			}
+		}
+		else {
+			//選択したものに条件がついてなければ決定
+			return true;
+		}
+		return false;
 	}
 
 	void OverloadedFunctionList::Call(const FunctionRequest& request, FunctionResponse& response) {
@@ -236,6 +391,32 @@ namespace sakura {
 		if (key == "length") {
 			return ScriptValue::Make(static_cast<number>(functions.size()));
 		}
+
+		else if (key == "UseNoOverwrappedRandom") {
+			return ScriptValue::Make(executeContext.GetInterpreter().CreateNativeObject<Delegate>(&OverloadedFunctionList::ScriptUseNoOverwrappedRandom, GetRef()));
+		}
+		else if (key == "UseOverwrappedRandom") {
+			return ScriptValue::Make(executeContext.GetInterpreter().CreateNativeObject<Delegate>(&OverloadedFunctionList::ScriptUseOverwrappedRandom, GetRef()));
+		}
+		else if (key == "IsNoOverwrappedRandom") {
+			return ScriptValue::Make(executeContext.GetInterpreter().CreateNativeObject<Delegate>(&OverloadedFunctionList::ScriptIsNoOverwrappedRandom, GetRef()));
+		}
+		else if (key == "IsOverwrappedRandom") {
+			return ScriptValue::Make(executeContext.GetInterpreter().CreateNativeObject<Delegate>(&OverloadedFunctionList::ScriptIsOverwrappedRandom, GetRef()));
+		}
+		else if (key == "ShuffleOverwrap") {
+			return ScriptValue::Make(executeContext.GetInterpreter().CreateNativeObject<Delegate>(&OverloadedFunctionList::ShuffleOverwrap, GetRef()));
+		}
+		else if (key == "Clear") {
+			return ScriptValue::Make(executeContext.GetInterpreter().CreateNativeObject<Delegate>(&OverloadedFunctionList::ScriptClear, GetRef()));
+		}
+		else if (key == "Add") {
+			return ScriptValue::Make(executeContext.GetInterpreter().CreateNativeObject<Delegate>(&OverloadedFunctionList::ScriptAdd, GetRef()));
+		}
+		else if (key == "AddRange") {
+			return ScriptValue::Make(executeContext.GetInterpreter().CreateNativeObject<Delegate>(&OverloadedFunctionList::ScriptAddRange, GetRef()));
+		}
+		
 		return nullptr;
 	}
 
@@ -253,14 +434,34 @@ namespace sakura {
 		if (item->nativeFunc == nullptr) {
 			return ScriptValue::Make(executeContext.GetInterpreter().CreateNativeObject<Delegate>(item->scriptFunc, thisValue, item->blockScope));
 		}
-		else {
+		else if(item->scriptFunc != nullptr) {
 			return ScriptValue::Make(executeContext.GetInterpreter().CreateNativeObject<Delegate>(item->nativeFunc, thisValue, item->blockScope));
 		}
+		else if (item->scriptItem != nullptr) {
+			if (item->scriptItem->IsObject() && item->scriptItem->GetObjectRef()->CanCall()) {
+				return item->scriptItem;
+			}
+			else {
+				//呼び出し可能オブジェクトでない場合は、それ自体を戻り値として返す特殊なデリゲートを作る
+				return ScriptValue::Make(executeContext.GetInterpreter().CreateNativeObject<Delegate>(&OverloadedFunctionList::ScriptReturnThisFunc, item->scriptItem));
+			}
+		}
+
+		return nullptr;
 	}
 
 	void OverloadedFunctionList::FetchReferencedItems(std::list<CollectableBase*>& result) {
 		for (FunctionItem& item : functions) {
 			result.push_back(item.blockScope.Get());
+
+			if (item.scriptCondition != nullptr) {
+				result.push_back(item.scriptCondition->GetObjectRef().Get());
+			}
+
+			if (item.scriptItem != nullptr) {
+				result.push_back(item.scriptItem->GetObjectRef().Get());
+			}
+			
 		}
 	}
 

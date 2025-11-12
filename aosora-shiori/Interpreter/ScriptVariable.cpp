@@ -112,6 +112,36 @@ namespace sakura {
 		}
 	}
 
+	void ScriptObject::ScriptGet(const FunctionRequest& request, FunctionResponse& response) {
+		if (request.GetArgumentCount() > 0) {
+			ScriptObject* obj = request.GetContext().GetInterpreter().InstanceAs<ScriptObject>(request.GetContext().GetBlockScope()->GetThisValue());
+
+			std::string k = request.GetArgument(0)->ToString();
+			auto rawgetResult = obj->RawGet(k);
+			if (rawgetResult != nullptr) {
+				response.SetReturnValue(rawgetResult);
+			}
+		}
+	}
+
+	void ScriptObject::ScriptSet(const FunctionRequest& request, FunctionResponse& response) {
+		if (request.GetArgumentCount() > 1) {
+			ScriptObject* obj = request.GetContext().GetInterpreter().InstanceAs<ScriptObject>(request.GetContext().GetBlockScope()->GetThisValue());
+			const std::string k = request.GetArgument(0)->ToString();
+
+			if (!obj->Contains(k)) {
+				//要素が増えようとしている場合、foreach操作では不可
+				if (!obj->ValidateCollectionLock(request.GetContext())) {
+					return;
+				}
+			}
+
+			auto v = request.GetArgument(1);
+			obj->RawSet(k, v);
+		}
+	}
+
+
 	void ScriptObject::RawSet(const std::string& key, const ScriptValueRef& value) {
 		assert(value != nullptr);
 		members[key] = value;
@@ -150,15 +180,16 @@ namespace sakura {
 	}
 
 	ScriptValueRef ScriptObject::Get(const std::string& key, ScriptExecuteContext& executeContext) {
-
-		auto rawgetResult = RawGet(key);
-		if (rawgetResult != nullptr) {
-			return rawgetResult;
-		}
-			
+	
 		//組み込みフィールド
 		if (key == "length") {
 			return ScriptValue::Make(static_cast<number>(members.size()));
+		}
+		else if (key == "Get") {
+			return ScriptValue::Make(executeContext.GetInterpreter().CreateNativeObject<Delegate>(&ScriptObject::ScriptGet, GetRef()));
+		}
+		else if (key == "Set") {
+			return ScriptValue::Make(executeContext.GetInterpreter().CreateNativeObject<Delegate>(&ScriptObject::ScriptSet, GetRef()));
 		}
 		else if (key == "Add") {
 			return ScriptValue::Make(executeContext.GetInterpreter().CreateNativeObject<Delegate>(&ScriptObject::ScriptAdd, GetRef()));
@@ -174,6 +205,16 @@ namespace sakura {
 		}
 		else if (key == "Keys") {
 			return ScriptValue::Make(executeContext.GetInterpreter().CreateNativeObject<Delegate>(&ScriptObject::ScriptKeys, GetRef()));
+		}
+
+		auto genralGetResult = PrimitiveMethod::GetGeneralMember(ScriptValue::Make(GetRef()), key, executeContext);
+		if (genralGetResult != nullptr) {
+			return genralGetResult;
+		}
+
+		auto rawgetResult = RawGet(key);
+		if (rawgetResult != nullptr) {
+			return rawgetResult;
 		}
 
 		return nullptr;

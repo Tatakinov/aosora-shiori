@@ -270,6 +270,14 @@ namespace sakura {
 		//ユニットを登録
 		void RegisterUnit(const std::string& unitName);
 
+		//ユニット情報を取得
+		const UnitData* FindUnitData(const std::string& unitName);
+
+		//ユニットの内部コレクション取得
+		const std::map<std::string, UnitData>& GetUnitCollection() const {
+			return units;
+		}
+
 		//ルート空間からユニットを取得
 		Reference<UnitObject> GetUnit(const std::string& unitName);
 		Reference<UnitObject> FindUnit(const std::string& unitNmae);
@@ -278,7 +286,6 @@ namespace sakura {
 		ScriptValueRef GetFromAlias(const ScriptUnitAlias& alias, const std::string& name);
 
 		//クラス取得
-		//ScriptValueRef GetClass(const std::string& name);
 		ScriptValueRef GetClass(const uint32_t typeId);
 
 		//クラス取得
@@ -293,15 +300,11 @@ namespace sakura {
 			}
 		}
 
-
-		//クラスID取得
-		//uint32_t GetClassId(const std::string& name);
-
 		//クラス名取得
 		std::string GetClassTypeName(uint32_t typeId);
 
 		//ASTをインタプリタに渡して実行
-		ToStringFunctionCallResult Execute(const ConstASTNodeRef& node, bool toStringResult);
+		ToStringFunctionCallResult Execute(const ConstASTNodeRef& node, bool toStringResult, bool isRootCall = false);
 
 		//文字列をスクリプト式として評価
 		EvaluateExpressionResult Eval(const std::string& expr, ScriptExecuteContext& executeContext, const ScriptSourceMetadataRef& importSourceMeta);
@@ -547,9 +550,11 @@ namespace sakura {
 		bool isTalkLineEnd;
 		bool isTalkJump;
 
+		//ルート呼び出し（スクリプトファイルそのものの実行中か）
+		bool isRootCall;
+
 		//このスタック位置の関数名
 		std::string funcName;
-
 
 	private:
 		ScriptInterpreterStack(ScriptInterpreterStack* parent) :
@@ -563,13 +568,14 @@ namespace sakura {
 			loopMode(LoopMode::Normal),
 			tryDepth(0),
 			isTalkLineEnd(false),
-			isTalkJump(false)
+			isTalkJump(false),
+			isRootCall(false)
 		{
 			speakedCache.lastSpeakerIndex = TalkStringCombiner::TALK_SPEAKER_INDEX_DEFAULT;
 		}
 
 	public:
-		ScriptInterpreterStack() :
+		ScriptInterpreterStack(bool isRootCall = false) :
 			returnValue(nullptr),
 			threwError(nullptr),
 			callingAstNode(nullptr),
@@ -577,7 +583,8 @@ namespace sakura {
 			parent(nullptr),
 			leaveMode(LeaveMode::None),
 			isTalkLineEnd(false),
-			isTalkJump(false)
+			isTalkJump(false),
+			isRootCall(isRootCall)
 		{
 			speakedCache.lastSpeakerIndex = TalkStringCombiner::TALK_SPEAKER_INDEX_DEFAULT;
 		}
@@ -775,6 +782,9 @@ namespace sakura {
 		}
 
 		bool IsTalkJump() const { return isTalkJump; }
+
+		//スクリプトルートの実行中か
+		bool IsRootCall() const { return isRootCall; }
 
 		//話者交替タグ
 		void SwitchTalkSpeakerIndex(ScriptInterpreter& interpreter) {

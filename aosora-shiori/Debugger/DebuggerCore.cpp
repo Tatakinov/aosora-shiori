@@ -315,13 +315,16 @@ namespace sakura {
 		enum class MetadataType : uint32_t {
 			LocalVariables,			//スタックフレームローカル変数
 			ShioriRequest,			//SHIORI Request
-			SaveData				//SaveData
+			SaveData,				//SaveData
+			CurrentUnit,				//カレントユニット
+			Units					//ユニット一覧
 		};
 
 		enum class RefType {
 			Null,
 			Object,
-			Metadata
+			Metadata,
+			UnitPath
 		};
 
 		//メタデータ、64bitであること
@@ -334,6 +337,7 @@ namespace sakura {
 			RefType type;
 			ObjectRef objectRef;	//スクリプトオブジェクト参照
 			Metadata metadata;		//スクリプトオブジェクト以外のメタデータ参照
+			std::string unitPath;	//参照ユニット
 
 			RefData(const ObjectRef& objRef) :
 				type(RefType::Object),
@@ -345,6 +349,11 @@ namespace sakura {
 				metadata(meta)
 			{ }
 
+			RefData(const std::string& unitPath):
+				type(RefType::UnitPath),
+				unitPath(unitPath)
+			{ }
+
 			RefData():
 				type(RefType::Null)
 			{ }
@@ -352,9 +361,14 @@ namespace sakura {
 
 	private:
 		//NOTE: GCに対して抵抗できないので注意。ブレークセッション中はGCは起動しないつもりで⋯
+
+		//ハンドルからリファレンスにするマップ
 		std::map<uint32_t, RefData> refMap;
+
+		//リファレンスからハンドルにするマップ
 		std::map<const void*, uint32_t> addressCache;
 		std::map<uint64_t, uint32_t> metadataCache;
+		std::map<std::string, uint32_t> unitCache;
 
 	private:
 		//ハンドルの払い出し
@@ -389,7 +403,7 @@ namespace sakura {
 
 		//メタデータをハンドルに変換
 		uint32_t From(const Metadata& meta) {
-			const uint64_t metaVal = *reinterpret_cast<const uint64_t*>(&meta);	//64bitにつめこむ
+			const uint64_t metaVal = *reinterpret_cast<const uint64_t*>(&meta);	//64bitにつめこむ(キーにできるので)
 
 			//同じオブジェクトに対して別のハンドルを発行しないようにチェック
 			auto cache = metadataCache.find(metaVal);
@@ -403,6 +417,24 @@ namespace sakura {
 			//参照先の格納
 			refMap.insert(decltype(refMap)::value_type(handle, meta));
 			metadataCache.insert(decltype(metadataCache)::value_type(metaVal, handle));
+			return handle;
+		}
+
+		//ユニットパスをハンドルに変換
+		uint32_t From(const std::string& unitPath) {
+
+			//同じパスに対して別のハンドルを発行しないようにチェック
+			auto cache = unitCache.find(unitPath);
+			if (cache != unitCache.end()) {
+				return cache->second;
+			}
+
+			//ハンドルの発行
+			const uint32_t handle = static_cast<uint32_t>(refMap.size()) + HANDLE_BASE_OBJECTS;
+			
+			//参照先の格納
+			refMap.insert(decltype(refMap)::value_type(handle, unitPath));
+			unitCache.insert(decltype(unitCache)::value_type(unitPath, handle));
 			return handle;
 		}
 
@@ -447,6 +479,10 @@ namespace sakura {
 
 		uint32_t MetadataToHandle(const ScriptReferenceHandleManager::Metadata& meta) {
 			return handleManager.From(meta);
+		}
+
+		uint32_t UnitToHandle(const std::string& unitName) {
+			return handleManager.From(unitName);
 		}
 
 		ScriptReferenceHandleManager::RefData HandleToObject(uint32_t handle) {
@@ -1147,8 +1183,6 @@ namespace sakura {
 
 		void ClearState()
 		{
-			isSetupCompleted = false;
-			breakPoints.ClearBreakPoint();
 			lastBreakFullPath = "";
 			lastBreakLineIndex = 0;
 			lastBreakStackLevel = 0;
@@ -1156,6 +1190,13 @@ namespace sakura {
 			lastPassLineIndex = 0;
 			lastPassStackLevel = 0;
 			executingState = ExecutingState::Execute;
+		}
+
+		void ClearDebuggerData()
+		{
+			isSetupCompleted = false;
+			breakPoints.ClearBreakPoint();
+			ClearState();
 		}
 
 	public:
@@ -1169,6 +1210,7 @@ namespace sakura {
 		void NotifyLog(const std::string& log, const ASTNodeBase& node, bool isError);
 		void NotifyLog(const std::string& log, const SourceCodeRange& sourceCodeRange, bool isError);
 		void NotifyScriptReturned();
+		void NotifyRequestBreak(const ASTNodeBase& node, ScriptExecuteContext& executeContext);
 
 		void Break(const std::string& filepath, uint32_t line, size_t stackLevel, const ASTNodeBase& executingNode, ScriptExecuteContext& executeContext, const ErrorInfo* errorInfo);
 		void SendBreakInformation(const ASTNodeBase& node, ScriptExecuteContext& executeContext, const ErrorInfo* errorInfo);
@@ -1256,9 +1298,26 @@ namespace sakura {
 
 	//例外発生時
 	void DebugSystem::NotifyThrowExceotion(const ScriptError& runtimeError, const ASTNodeBase& executingNode, ScriptExecuteContext& executeContext) {
-		ScriptInterpreter::DebuggerScope debuggerScope(executeContext.GetInterpreter());
 
-		if (breakPoints.IsBreakOnAllRuntimeError()) {
+		if (executeContext.GetInterpreter().IsDebuggerScope()) {
+			//すでにデバッガスコープにある場合は、再入禁止
+			//ウォッチなどからブレークにはまるのを避けるため
+			return;
+		}
+
+		ScriptInterpreter::DebuggerScope debuggerScope(executeContext.GetInterpreter());
+		bool isBreak = false;
+		
+		if (executeContext.GetStack().IsTryBlock() && runtimeError.CanCatch()) {
+			//キャッチ可能
+			isBreak = breakPoints.IsBreakOnAllRuntimeError();
+		}
+		else {
+			//キャッチされない
+			isBreak = breakPoints.IsBreakOnAllRuntimeError() || breakPoints.IsBreakUncaughtError();
+		}
+
+		if (isBreak) {
 			//エディタスタックレベルの確認
 			auto stackLevel = executeContext.MakeStackTrace(executingNode, executeContext.GetBlockScope(), executeContext.GetStack().GetFunctionName()).size();
 			const std::string fullPath = executingNode.GetSourceRange().GetSourceFileFullPath();
@@ -1298,7 +1357,30 @@ namespace sakura {
 
 	void DebugSystem::NotifyScriptReturned() {
 		//ステップイン等を解除する
-		executingState = ExecutingState::Execute;
+		ClearState();
+	}
+
+	void DebugSystem::NotifyRequestBreak(const ASTNodeBase& node, ScriptExecuteContext& executeContext) {
+		//スクリプト側からのブレークリクエスト
+		if (executeContext.GetInterpreter().IsDebuggerScope()) {
+			//すでにデバッガスコープにある場合は、再入禁止
+			//ウォッチなどからブレークにはまるのを避けるため
+			return;
+		}
+
+		//接続中のみ
+		if (!IsConnected()) {
+			return;
+		}
+
+		ScriptInterpreter::DebuggerScope debuggerScope(executeContext.GetInterpreter());
+
+		auto stackTrace = executeContext.MakeStackTrace(node, executeContext.GetBlockScope(), executeContext.GetStack().GetFunctionName());
+		auto stackLevel = stackTrace.size();
+		const std::string fullPath = node.GetSourceRange().GetSourceFileFullPath();
+		const uint32_t line = node.GetSourceRange().GetBeginLineIndex();
+
+		Break(fullPath, line, stackLevel, node, executeContext, nullptr);
 	}
 
 	void DebugSystem::Break(const std::string& fullPath, uint32_t line, size_t stackLevel, const ASTNodeBase& node, ScriptExecuteContext& executeContext, const ErrorInfo* errorInfo) {
@@ -1442,6 +1524,63 @@ namespace sakura {
 		return variableInfo;
 	}
 
+	//ユニット情報の作成
+	JsonObjectRef MakeUnitInfo(const std::string& unitName, const UnitData& unitData, BreakSession& breakSession) {
+		auto unitInfo = JsonSerializer::MakeObject();
+		unitInfo->Add("value", JsonSerializer::MakeNull());
+		unitInfo->Add("key", JsonSerializer::From(unitName));
+		unitInfo->Add("primitiveType", JsonSerializer::From("object"));
+		unitInfo->Add("objectType", JsonSerializer::From("unit"));
+		unitInfo->Add("objectHandle", JsonSerializer::From(breakSession.UnitToHandle(unitName)));
+		return unitInfo;
+	}
+
+	//ユニットの列挙
+	JsonArrayRef EnumUnits(BreakSession& breakSession) {
+		const auto& unitCollection = breakSession.GetContext().GetInterpreter().GetUnitCollection();
+		JsonArrayRef result = JsonSerializer::MakeArray();
+		for (auto kvp : unitCollection) {
+			result->Add(MakeUnitInfo(kvp.first,	kvp.second, breakSession));
+		}
+		return result;
+	}
+
+	//ユニット変数の列挙
+	JsonArrayRef EnumUnitVariables(const std::string& unitName, BreakSession& breakSession) {
+		JsonArrayRef result = JsonSerializer::MakeArray();
+		const auto* unitData = breakSession.GetContext().GetInterpreter().FindUnitData(unitName);
+		if (unitData != nullptr) {
+			for (auto kvp : unitData->unitVariables) {
+				result->Add(MakeVariableInfo(kvp.first, kvp.second, breakSession));
+			}
+		}
+		return result;
+	}
+
+	//カレントユニット変数の列挙
+	JsonArrayRef EnumCurrentUnitVariables(uint32_t stackIndex, BreakSession& breakSession) {
+		auto stackTrace = breakSession.GetContext().MakeStackTrace(breakSession.GetBreakASTNode(), breakSession.GetContext().GetBlockScope(), breakSession.GetContext().GetStack().GetFunctionName());
+		JsonArrayRef result = JsonSerializer::MakeArray();
+
+		uint32_t nativeStackLevel = 0;
+		for (auto& frame : stackTrace) {
+			if (!frame.hasSourceRange) {
+				nativeStackLevel++;	//純粋な数を数える
+				continue;	//スクリプトのスタックフレームのみ
+			}
+
+			if (stackIndex == nativeStackLevel) {
+				//一致するスタックフレームの情報を送る
+				result = EnumUnitVariables(frame.executingAstNode->GetScriptUnit()->GetUnit(), breakSession);
+				break;
+			}
+
+			nativeStackLevel++;
+		}
+
+		return result;
+	}
+
 	//ローカル変数の列挙
 	JsonArrayRef EnumLocalVariables(uint32_t stackIndex, BreakSession& breakSession) {
 		auto stackTrace = breakSession.GetContext().MakeStackTrace(breakSession.GetBreakASTNode(), breakSession.GetContext().GetBlockScope(), breakSession.GetContext().GetStack().GetFunctionName());
@@ -1462,7 +1601,7 @@ namespace sakura {
 				while (scope != nullptr) {
 
 					//ローカル
-					for (auto& kvp : scope->GetLocalVariableCollection()) {
+					for (auto kvp : scope->GetLocalVariableCollection()) {
 						if (!addedSet.contains(kvp.first)) {
 							result->Add(MakeVariableInfo(kvp.first, kvp.second, breakSession));
 							addedSet.insert(kvp.first);
@@ -1585,6 +1724,16 @@ namespace sakura {
 			else if (ref.metadata.metadataType == ScriptReferenceHandleManager::MetadataType::SaveData) {
 				return EnumSaveData(breakSession);
 			}
+			else if (ref.metadata.metadataType == ScriptReferenceHandleManager::MetadataType::CurrentUnit) {
+				return EnumCurrentUnitVariables(ref.metadata.stackIndex, breakSession);
+			}
+			else if (ref.metadata.metadataType == ScriptReferenceHandleManager::MetadataType::Units) {
+				return EnumUnits(breakSession);
+			}
+		}
+
+		if (ref.type == ScriptReferenceHandleManager::RefType::UnitPath) {
+			return EnumUnitVariables(ref.unitPath, breakSession);
 		}
 
 		if (ref.type != ScriptReferenceHandleManager::RefType::Object) {
@@ -1665,6 +1814,31 @@ namespace sakura {
 			const uint32_t handle = breakSession.MetadataToHandle(meta);
 			obj->Add("handle", JsonSerializer::From(handle));
 			obj->Add("name", JsonSerializer::From("SaveData"));
+			result->Add(obj);
+		}
+
+
+		//Current Unit
+		{
+			auto obj = JsonSerializer::MakeObject();
+			ScriptReferenceHandleManager::Metadata meta;
+			meta.metadataType = ScriptReferenceHandleManager::MetadataType::CurrentUnit;
+			meta.stackIndex = stackLevel;
+			const uint32_t handle = breakSession.MetadataToHandle(meta);
+			obj->Add("handle", JsonSerializer::From(handle));
+			obj->Add("name", JsonSerializer::From("Current Unit"));
+			result->Add(obj);
+		}
+
+		//Units
+		{
+			auto obj = JsonSerializer::MakeObject();
+			ScriptReferenceHandleManager::Metadata meta;
+			meta.metadataType = ScriptReferenceHandleManager::MetadataType::Units;
+			meta.stackIndex = 0;
+			const uint32_t handle = breakSession.MetadataToHandle(meta);
+			obj->Add("handle", JsonSerializer::From(handle));
+			obj->Add("name", JsonSerializer::From("Units"));
 			result->Add(obj);
 		}
 
@@ -1957,6 +2131,12 @@ namespace sakura {
 		}
 	}
 
+	void Debugger::NotifyRequestBreak(const ASTNodeBase& executingNode, ScriptExecuteContext& executeContext) {
+		if (DebugSystem::GetInstance() != nullptr) {
+			DebugSystem::GetInstance()->NotifyRequestBreak(executingNode, executeContext);
+		}
+	}
+
 	void Debugger::SetDebugBootstrapped(bool isBootstrapped) {
 		if (DebugSystem::GetInstance() != nullptr) {
 			DebugSystem::GetInstance()->SetDebugBootstrapped(isBootstrapped);
@@ -2012,6 +2192,7 @@ namespace sakura {
 	void Debugger::NotifyLog(const std::string& log, const ASTNodeBase& node, bool isError){}
 	void Debugger::NotifyLog(const std::string& log, const SourceCodeRange& range, bool isError){}
 	void Debugger::NotifyEventReturned(){}
+	void Debugger::NotifyRequestBreak(const ASTNodeBase& node, ScriptExecuteContext& executeContext) {}
 	void Debugger::Create(uint32_t connectionPort){}
 	void Debugger::Destroy(){}
 	bool Debugger::IsCreated() { return false; }

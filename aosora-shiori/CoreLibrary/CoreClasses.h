@@ -317,6 +317,23 @@ namespace sakura {
 		}
 	};
 
+	//アサートエラー
+	class AssertError : public ScriptError {
+	public:
+		AssertError(const std::string& errorMessage) :ScriptError(errorMessage)
+		{
+			SetNativeOverrideInstanceId(TypeId());
+
+			//catch不可エラーとして実現する
+			SetCanCatch(false);
+		}
+
+		//Object<>の継承からさらに継承なので別途TypeIdを定義しないといけない
+		static uint32_t TypeId() {
+			return ObjectTypeIdGenerator::Id<AssertError>();
+		}
+	};
+
 	//プラグインエラー、aosoraプラグインが標準で発生させるエラー
 	class PluginError : public ScriptError {
 	public:
@@ -330,7 +347,7 @@ namespace sakura {
 	};
 
 
-	//オーバーロードを許容する関数の集合
+	//オーバーロードを許容する関数の集合、ただしスクリプトから単語群想定で使用できるように非関数も一応サポート
 	//重複回避つきのランダム選択機能
 	class OverloadedFunctionList : public Object<OverloadedFunctionList> {
 	private:
@@ -339,18 +356,36 @@ namespace sakura {
 			ScriptNativeFunction nativeFunc;
 			Reference<BlockScope> blockScope;		//関数定義時のブロックスコープ。ローカル変数キャプチャ領域。
 			ConstASTNodeRef condition;
+
+			//後付けでスクリプト上で追加した場合のもの
+			ScriptValueRef scriptCondition;
+			ScriptValueRef scriptItem;
+		};
+
+		enum class SelectorMode {
+			NoOverwrappedRandom,	//重複回避ランダム
+			OverwrappedRandom		//純粋なランダム
 		};
 
 	private:
+		SelectorMode selectorMode;
 		std::vector<FunctionItem> functions;
 		std::vector<size_t> callOrder;
 		std::string funcName;
 
 	private:
 		const FunctionItem* SelectItemInternal(const FunctionRequest& request, FunctionResponse& response);
+		const FunctionItem* SelectItemInternalNoOverwrappedRandom(const FunctionRequest& request, FunctionResponse& response);
+		const FunctionItem* SelectItemInternalOverwrapedRandom(const FunctionRequest& request, FunctionResponse& response);
+		bool ValidateItemCondition(const FunctionRequest& request, FunctionResponse& response, const FunctionItem& item);
+
 		void MakeCallorder();
 
 	public:
+		OverloadedFunctionList() :
+			selectorMode(SelectorMode::NoOverwrappedRandom) {
+		}
+
 		void Add(const ConstScriptFunctionRef& func, const ConstASTNodeRef& condition, const Reference<BlockScope>& scope = nullptr) {
 			FunctionItem item;
 			item.scriptFunc = func;
@@ -369,6 +404,13 @@ namespace sakura {
 			functions.push_back(item);
 		}
 
+		void Add(const ScriptValueRef& value, const ScriptValueRef& condition = ScriptValue::Null) {
+			FunctionItem item;
+			item.scriptItem = value;
+			item.scriptCondition = condition;
+			functions.push_back(item);
+		}
+
 		//定義時の関数名。別変数に代入できてしまうので、デバッグ用に登録時の名前をとっておく。
 		void SetName(const std::string& name) {
 			funcName = name;
@@ -377,6 +419,29 @@ namespace sakura {
 		const std::string& GetName() const {
 			return funcName;
 		}
+
+		//セレクタモード
+		void SetSelectorMode(SelectorMode mode) {
+			if (selectorMode != mode) {
+				//変更時は呼び出し情報をクリアしてリセットをかける
+				callOrder.clear();
+				selectorMode = mode;
+			}
+		}
+
+		SelectorMode GetSelectorMode() const {
+			return selectorMode;
+		}
+
+		static void ScriptReturnThisFunc(const FunctionRequest& request, FunctionResponse& response);
+		static void ScriptUseNoOverwrappedRandom(const FunctionRequest& request, FunctionResponse& response);
+		static void ScriptUseOverwrappedRandom(const FunctionRequest& request, FunctionResponse& response);
+		static void ScriptIsNoOverwrappedRandom(const FunctionRequest& request, FunctionResponse& response);
+		static void ScriptIsOverwrappedRandom(const FunctionRequest& request, FunctionResponse& response);
+		static void ShuffleOverwrap(const FunctionRequest& request, FunctionResponse& response);
+		static void ScriptClear(const FunctionRequest& request, FunctionResponse& response);
+		static void ScriptAdd(const FunctionRequest& request, FunctionResponse& response);
+		static void ScriptAddRange(const FunctionRequest& request, FunctionResponse& response);
 
 		ScriptValueRef SelectItem(ScriptExecuteContext& executeContext, const ScriptValueRef& thisValue);
 		void ThisCall(const FunctionRequest& request, FunctionResponse& response, const ScriptValueRef& thisValue);

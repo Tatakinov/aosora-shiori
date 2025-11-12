@@ -461,6 +461,9 @@ namespace sakura {
 		else if (key == "GetIndex") {
 			return ScriptValue::Make(executeContext.GetInterpreter().CreateNativeObject<Delegate>(&Random::GetIndex));
 		}
+		else if (key == "CreateSelector") {
+			return ScriptValue::Make(executeContext.GetInterpreter().CreateNativeObject<Delegate>(&Random::CreateSelector));
+		}
 
 		return nullptr;
 	}
@@ -517,6 +520,28 @@ namespace sakura {
 
 	void Random::GetNumber(const FunctionRequest& request, FunctionResponse& response) {
 		response.SetReturnValue(ScriptValue::Make(RandNum()));
+	}
+
+	void Random::CreateSelector(const FunctionRequest& request, FunctionResponse& response) {
+		if (request.GetArgumentCount() > 0) {
+			auto* items = request.GetInterpreter().InstanceAs<ScriptArray>(request.GetArgument(0));
+			if (items != nullptr) {
+				auto selector = request.GetInterpreter().CreateNativeObject<OverloadedFunctionList>();
+				selector->SetName("(RandomSelector)");
+				
+				for (size_t i = 0; i < items->Count(); i++) {
+					selector->Add(items->At(i));
+				}
+
+				response.SetReturnValue(ScriptValue::Make(selector));
+			}
+		}
+		else {
+			//引数がない場合は空のセレクタを返す
+			auto selector = request.GetInterpreter().CreateNativeObject<OverloadedFunctionList>();
+			selector->SetName("(RandomSelector)");
+			response.SetReturnValue(ScriptValue::Make(selector));
+		}
 	}
 
 
@@ -711,12 +736,47 @@ namespace sakura {
 			//デバッグ出力
 			Debugger::NotifyLog(data, *node, false);
 		}
+	}
 
+	void ScriptDebug::Assert(const FunctionRequest& request, FunctionResponse& response) {
+		if (!Debugger::IsCreated()) {
+			return;
+		}
+
+		if (request.GetArgumentCount() >= 1) {
+			//式評価
+			bool v = request.GetArgument(0)->ToBoolean();
+			if (!v) {
+
+				//エラーメッセージがあれば使う
+				std::string errorMessage;
+				if (request.GetArgumentCount() >= 2) {
+					errorMessage = request.GetArgument(1)->ToString();
+				}
+
+				//エラー発生
+				response.SetThrewError(request.GetContext().GetInterpreter().CreateNativeObject<AssertError>(
+					!errorMessage.empty() ? errorMessage : "Assertion failed"
+				));
+			}
+		}
+		else {
+			//引数不足もエラー扱い
+			response.SetThrewError(request.GetContext().GetInterpreter().CreateNativeObject<AssertError>(
+				"Assertion failed"
+			));
+		}
 	}
 
 	ScriptValueRef ScriptDebug::StaticGet(const std::string& key, ScriptExecuteContext& executeContext) {
-		if (key == "WriteLine") {
+		if (key == "isEnabled") {
+			return ScriptValue::Make(Debugger::IsCreated());
+		}
+		else if (key == "WriteLine") {
 			return ScriptValue::Make(executeContext.GetInterpreter().CreateNativeObject<Delegate>(&ScriptDebug::WriteLine));
+		}
+		else if (key == "Assert") {
+			return ScriptValue::Make(executeContext.GetInterpreter().CreateNativeObject<Delegate>(&ScriptDebug::Assert));
 		}
 		return nullptr;
 	}

@@ -88,6 +88,9 @@ namespace sakura {
 
 		//0.0-1.0範囲の実数を取得
 		static void GetNumber(const FunctionRequest& request, FunctionResponse& response);
+
+		//配列から選択オブジェクトの作成
+		static void CreateSelector(const FunctionRequest& request, FunctionResponse& response);
 	};
 
 	//セーブデータオブジェクト
@@ -250,6 +253,7 @@ namespace sakura {
 		std::string value;
 		std::vector<ShioriError> errors;
 		std::vector<std::string> saoriValues;
+		std::vector<std::string> shioriReferences;
 
 	public:
 		void SetBadRequest() {
@@ -327,6 +331,15 @@ namespace sakura {
 
 		const std::vector<std::string>& GetSaoriValues() const {
 			return saoriValues;
+		}
+
+		//SHIORIのReference*返却オブジェクトを渡す
+		void SetShioriReferences(const std::vector<std::string>& references) {
+			shioriReferences = references;
+		}
+
+		const std::vector<std::string>& GetShioriReferences() const {
+			return shioriReferences;
 		}
 	};
 
@@ -508,6 +521,7 @@ namespace sakura {
 	class ScriptDebug : public Object<ScriptDebug> {
 	private:
 		static void WriteLine(const FunctionRequest& request, FunctionResponse& response);
+		static void Assert(const FunctionRequest& request, FunctionResponse& response);
 
 	public:
 		static ScriptValueRef StaticGet(const std::string& key, ScriptExecuteContext& executeContext);

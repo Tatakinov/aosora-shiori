@@ -111,16 +111,13 @@ class AosoraDebugSession extends DebugSession {
 					description: GetMessage().debugger005,
 					filter: "all",
 					default: false
-				}
-				/*
-				,
+				},
 				{
 					label: "キャッチされなかったエラー",
 					description: "実行時にエラーが発生したとき、キャッチされなかった場合に実行中断します。",
 					filter: "uncaught",
 					default: true
 				}
-				*/
 			]
 		};
 
@@ -149,11 +146,7 @@ class AosoraDebugSession extends DebugSession {
 			await project.Parse(debugPath);
 
 			//起動する
-			if(!project.enableDebug){
-				vscode.window.showErrorMessage(GetMessage().debugger006);
-				this.sendEvent(new TerminatedEvent());
-			}
-			else if(project.runtimePath){
+			if(project.runtimePath){
 				const aosoraDir = path.dirname(projPath);
 				const ghostPath = path.dirname(path.dirname(aosoraDir));	//プロジェクトの２階層上
 				try{
@@ -369,7 +362,7 @@ class AosoraDebugSession extends DebugSession {
 					else if(result.exception && args.context !== 'hover') {
 						const variable = this.convertVariable(result.exception);
 						response.body = {
-							result: (result.errorType ?? "Error") + "Error: " + (variable.value ?? ""),
+							result: (result.errorType ?? "Error") + ": " + (variable.value ?? ""),
 							variablesReference: variable.variablesReference,
 							type: variable.type
 						};
