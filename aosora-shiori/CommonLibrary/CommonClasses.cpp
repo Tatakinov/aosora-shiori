@@ -790,7 +790,7 @@ namespace sakura {
 		}
 
 		DebugOutputContext debugOutputContext;
-		std::string data = request.GetArgument(0)->DebugToString(request.GetContext(), debugOutputContext);
+		std::string data = request.GetArgument(0)->ToString();
 		DebugOut(data.c_str());
 
 		/*

@@ -1,4 +1,5 @@
-﻿#include <filesystem>
+﻿#include <Windows.h>
+#include <filesystem>
 #include <iostream>
 #include "Shiori.h"
 #include "Misc/Message.h"
@@ -9,9 +10,12 @@
 */
 int main(int argc, char* argv[])
 {
+	//UTF-8を設定
+	SetConsoleOutputCP(CP_UTF8);
+
 	//SHIORI同様にaosoraを起動
 	sakura::Shiori* aosoraShiori = new sakura::Shiori();
-	aosoraShiori->Load(std::filesystem::current_path().string());
+	aosoraShiori->Load(std::filesystem::current_path().string() + "\\");
 
 	//エラーがあればコンソール出力
 	if (aosoraShiori->HasScriptLoadError()) {
@@ -31,6 +35,7 @@ int main(int argc, char* argv[])
 	sakura::ShioriResponse response;
 
 	//アプリケーション本体、イベントID、Reference.. と続くので読む
+	//TODO: 実行側の引数をつけられるようにしたい。たとえばセーブデータ書き込みたくないとき aosora --nosave -- OnHelloWorld など
 	bool hasEventId = argc >= 2;
 	if (hasEventId) {
 		request.SetEventId(argv[1]);
@@ -48,6 +53,11 @@ int main(int argc, char* argv[])
 				std::cerr << item.GetErrorMessage() << std::endl;
 			}
 			return 1;
+		}
+
+		//戻り値があればコンソールに流す
+		if (!response.GetValue().empty()) {
+			std::cout << response.GetValue() << std::endl;
 		}
 	}
 
