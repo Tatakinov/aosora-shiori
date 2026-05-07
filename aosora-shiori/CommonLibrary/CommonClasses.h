@@ -527,6 +527,15 @@ namespace sakura {
 		static ScriptValueRef StaticGet(const std::string& key, ScriptExecuteContext& executeContext);
 	};
 
+	//コンソール関係
+	class ScriptConsoleIO : public Object<ScriptConsoleIO> {
+	private:
+		static void WriteLine(const FunctionRequest& request, FunctionResponse& response);
+
+	public:
+		static ScriptValueRef StaticGet(const std::string& key, ScriptExecuteContext& executeContext);
+	};
+
 	//ScriptObjectのシリアライザ（スクリプトからは直接使用しない)
 	class ObjectSerializer {
 	public:

@@ -19,6 +19,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "aosora-plugin-sample", "aos
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "aosora-shiori-test", "aosora-shiori-test\aosora-shiori-test.vcxproj", "{A19E8F93-0568-EDAB-0B35-82F7A98DA709}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "aosora-console", "aosora-console\aosora-console.vcxproj", "{D1E6FA88-28AC-4C60-A29C-8AB0BF0BE41E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x86 = Debug|x86
@@ -70,6 +72,12 @@ Global
 		{A19E8F93-0568-EDAB-0B35-82F7A98DA709}.Deploy|x86.ActiveCfg = Release|Win32
 		{A19E8F93-0568-EDAB-0B35-82F7A98DA709}.Release|x86.ActiveCfg = Release|Win32
 		{A19E8F93-0568-EDAB-0B35-82F7A98DA709}.Release|x86.Build.0 = Release|Win32
+		{D1E6FA88-28AC-4C60-A29C-8AB0BF0BE41E}.Debug|x86.ActiveCfg = Debug|Win32
+		{D1E6FA88-28AC-4C60-A29C-8AB0BF0BE41E}.Debug|x86.Build.0 = Debug|Win32
+		{D1E6FA88-28AC-4C60-A29C-8AB0BF0BE41E}.Deploy|x86.ActiveCfg = Release|Win32
+		{D1E6FA88-28AC-4C60-A29C-8AB0BF0BE41E}.Deploy|x86.Build.0 = Release|Win32
+		{D1E6FA88-28AC-4C60-A29C-8AB0BF0BE41E}.Release|x86.ActiveCfg = Release|Win32
+		{D1E6FA88-28AC-4C60-A29C-8AB0BF0BE41E}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

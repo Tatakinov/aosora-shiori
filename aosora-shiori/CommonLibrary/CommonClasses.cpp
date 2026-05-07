@@ -783,4 +783,40 @@ namespace sakura {
 		return nullptr;
 	}
 
+
+	void ScriptConsoleIO::WriteLine(const FunctionRequest& request, FunctionResponse& response) {
+		if (request.GetArgumentCount() == 0) {
+			return;
+		}
+
+		DebugOutputContext debugOutputContext;
+		std::string data = request.GetArgument(0)->DebugToString(request.GetContext(), debugOutputContext);
+		DebugOut(data.c_str());
+
+		/*
+		const ASTNodeBase* node = request.GetContext().GetLatestASTNode();
+
+		std::ofstream* const stream = request.GetContext().GetInterpreter().GetDebugOutputStream();
+		if (stream != nullptr) {
+			if (node != nullptr) {
+				//出力元のスクリプト位置をとっておく
+				*stream << node->GetSourceRange().ToString() << " ";
+			}
+			*stream << data << std::endl;
+			stream->flush();
+		}
+		*/
+
+		
+		//コンソール出力
+		std::cout << data << std::endl;
+	}
+
+	ScriptValueRef ScriptConsoleIO::StaticGet(const std::string& key, ScriptExecuteContext& executeContext) {
+		if (key == "WriteLine") {
+			return ScriptValue::Make(executeContext.GetInterpreter().CreateNativeObject<Delegate>(&ScriptConsoleIO::WriteLine));
+		}
+		return nullptr;
+	}
+
 }

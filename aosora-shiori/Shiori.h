@@ -60,6 +60,13 @@ namespace sakura {
 		std::string ToStringRuntimeErrorForSakuraScript(const ObjectRef& err, bool isBooting = false);
 		std::string ToStringRuntimeErrorForErrorLog(const ObjectRef& err);
 
+		bool HasBootExecuteError() const { return !bootingExecuteErrorLog.empty(); }
+		const std::string& GetBootingExecuteErrorLog() const { return bootingExecuteErrorLog; }
+		const std::string& GetBootingExecuteErrorGuide() const { return bootingExecuteErrorGuide; }
+
+		bool HasScriptLoadError() const { return !scriptLoadErrors.empty(); }
+		const std::vector<ScriptParseError>& GetScriptLoadErrors() const { return scriptLoadErrors; }
+
 		//コンソール出力用のエラー情報取得
 		std::string GetErrorsString();
 		const std::string& GetGhostMasterPath() const { return ghostMasterPath; }
