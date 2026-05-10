@@ -7,6 +7,11 @@
 #define AOSORA_REQUIRED_WIN32
 #endif
 
+//特別対応してるプラットフォームがない場合のダミー分岐
+#if !defined(AOSORA_REQUIRED_WIN32)
+#define AOSORA_PLATFORM_DUMMY
+#endif
+
 //SAORIローダの有効化
 #define AOSORA_ENABLE_SAORI_LOADER
 

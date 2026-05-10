@@ -7,3 +7,8 @@
 #if defined(AOSORA_REQUIRED_WIN32)
 #include <windows.h>
 #endif
+
+namespace sakura
+{
+
+}
