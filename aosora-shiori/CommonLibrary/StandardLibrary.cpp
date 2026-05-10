@@ -253,7 +253,7 @@ namespace sakura {
 
 		std::string targetPath = request.GetInterpreter().GetFileName(request.GetArgument(0)->ToString());
 		std::error_code errCode;
-		std::filesystem::remove_all(targetPath, errCode);
+		File::Delete(targetPath, errCode);
 		if (!errCode) {
 			//成功
 			response.SetReturnValue(ScriptValue::True);
@@ -300,7 +300,7 @@ namespace sakura {
 
 		//移動
 		std::error_code errCode;
-		std::filesystem::rename(srcPath, destPath, errCode);
+		File::Move(srcPath, destPath, errCode);
 
 		if (!errCode) {
 			response.SetReturnValue(ScriptValue::True);
@@ -345,7 +345,7 @@ namespace sakura {
 
 		//移動
 		std::error_code errCode;
-		std::filesystem::copy(srcPath, destPath, std::filesystem::copy_options::overwrite_existing, errCode);
+		File::Copy(srcPath.c_str(), destPath.c_str(), true, errCode);
 
 		if (!errCode) {
 			response.SetReturnValue(ScriptValue::True);
@@ -383,13 +383,13 @@ namespace sakura {
 		bool result = false;
 		switch (mode) {
 		case PathCheckMode::Exists:
-			result = std::filesystem::exists(targetPath, errCode);
+			result = File::Exists(targetPath, errCode);
 			break;
 		case PathCheckMode::IsDirectory:
-			result = std::filesystem::is_directory(targetPath, errCode);
+			result = File::IsDirectory(targetPath, errCode);
 			break;
 		case PathCheckMode::IsFile:
-			result = std::filesystem::is_regular_file(targetPath, errCode);
+			result = File::IsFile(targetPath, errCode);
 			break;
 		}
 
@@ -432,7 +432,7 @@ namespace sakura {
 
 		std::string targetPath = request.GetInterpreter().GetFileName(request.GetArgument(0)->ToString());
 		std::error_code errCode;
-		std::filesystem::create_directories(targetPath, errCode);
+		File::CreateDirectories(targetPath, errCode);
 		if (!errCode) {
 			//成功
 			response.SetReturnValue(ScriptValue::True);

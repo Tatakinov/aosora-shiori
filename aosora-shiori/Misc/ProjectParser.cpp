@@ -11,6 +11,8 @@ namespace sakura {
 
 	void LoadProjectFile(std::ifstream& loadStream, ProjectSettings& projectSettings, const std::string& basePath, bool isUnitFile, bool isForceDisableDebugSystem) {
 		std::string line;
+		std::string fsBasePath = Utf8ToFileSystem(basePath);
+
 		while (std::getline(loadStream, line)) {
 #if !(defined(WIN32) || defined(_WIN32))
 			// CRLFのCRが残るので削除。
@@ -95,8 +97,8 @@ namespace sakura {
 			else
 			{
 				//カンマがない行はロードするファイルの列挙
-				std::filesystem::path path(basePath);
-				path.append(line);
+				std::filesystem::path path(fsBasePath);
+				path.append(Utf8ToFileSystem(line));
 				std::string pathStr = path.make_preferred().string();
 				if (projectSettings.scriptFilesSet.insert(pathStr).second) {
 					projectSettings.scriptFiles.push_back(pathStr);

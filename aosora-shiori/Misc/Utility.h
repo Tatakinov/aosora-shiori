@@ -167,6 +167,7 @@ namespace sakura{
 	//文字コード変換
 	std::string SjisToUtf8(const std::string& input);
 	std::string Utf8ToSjis(const std::string& input);
+	std::string Utf8ToFileSystem(const std::string& input);
 
 	//先頭バイトからUTF-8で何バイトか取得
 	inline size_t GetUnicodeByteCount(uint8_t firstByte) {
@@ -376,15 +377,20 @@ namespace sakura{
 
 	class File {
 	public:
-		static bool ReadAllText(const char* filename, std::string& result);
-		static bool ReadAllText(const std::string& filename, std::string& result) {
-			return ReadAllText(filename.c_str(), result);
-		}
+		static bool ReadAllText(const std::string& filename, std::string& result);
+		static bool WriteAllText(const std::string& filename, const std::string& content);
 
-		static bool WriteAllText(const char* filename, const std::string& content);
-		static bool WriteAllText(const std::string& filename, const std::string& content) {
-			return WriteAllText(filename.c_str(), content);
-		}
+		static void Delete(const std::string& filename, std::error_code& err);
+		static void Copy(const std::string& sourceFilename, const std::string& destFilename, bool overwrite, std::error_code& err);
+		static void Move(const std::string& sourceFilename, const std::string& destFilename, std::error_code& err);
+		static bool Exists(const std::string& filename, std::error_code& err);
+		static void CreateDirectories(const std::string& dirname, std::error_code& err);
+		static bool IsDirectory(const std::string& filename, std::error_code& err);
+		static bool IsFile(const std::string& filename, std::error_code& err);
+		static std::vector<std::string> GetFiles(const std::string& filename, bool isRecursive, std::error_code& err);
+
+		//プロセス起動
+		//static bool ExecuteProcess();
 	};
 
 	//aosoraバージョン取得(major, minor, release)
