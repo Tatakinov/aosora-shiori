@@ -184,7 +184,13 @@ namespace sakura {
 
 		//ルートスクリプト実行
 		for (auto item : parsedFileList) {
+
+			//通常実行にあわせてステップ数のリセット、GCを行う。SecurityLevelはLocal固定
+			interpreter.ResetScriptStep();
+			interpreter.SetSecurityLevel(SecurityLevel::LOCAL);
 			auto rootResult = interpreter.Execute(item->root, false, true);
+			interpreter.CollectObjects();
+
 			if (!rootResult.success) {
 
 				//起動手順中のエラーとして記録
