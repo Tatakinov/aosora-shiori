@@ -2343,7 +2343,7 @@ namespace sakura {
 				std::string n = str.substr(3, endBlacketIndex - 3);
 				size_t speakerIndex;
 				if (StringToIndex(n, speakerIndex)) {
-					return { static_cast<int32_t>(speakerIndex), std::string_view(str.c_str(), endBlacketIndex) };
+					return { static_cast<int32_t>(speakerIndex), std::string_view(str.c_str(), endBlacketIndex+1) };
 				}
 			}
 		}
