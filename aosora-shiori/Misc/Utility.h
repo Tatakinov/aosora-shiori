@@ -397,26 +397,11 @@ namespace sakura{
 	//ファイルシステムパスの文字コードとスクリプト側の文字コードの差異を吸収するためのパスオブジェクト
 	class FileSystemPath
 	{
-	public:
-		enum class CharsetType
-		{
-			Script,			//スクリプト側の文字コード
-			FileSystem		//ファイルシステム側の文字コード
-		};
-
 	private:
-		CharsetType charset;			//内部表現タイプ
 		std::filesystem::path body;
 
-		FileSystemPath(const std::filesystem::path& path, CharsetType charset) :
-			charset(charset),
+		FileSystemPath(const std::filesystem::path& path) :
 			body(path)
-		{
-		}
-
-		FileSystemPath(CharsetType charset) :
-			charset(charset),
-			body()
 		{
 		}
 
@@ -431,14 +416,13 @@ namespace sakura{
 
 	public:
 		FileSystemPath():
-			charset(CharsetType::Script),
 			body()
 		{ }
 
 		//初期化
 		static FileSystemPath FromFileSystemStr(const std::string& path, bool makePreferred = false)
 		{
-			FileSystemPath result = FileSystemPath(path, CharsetType::FileSystem);
+			FileSystemPath result = FileSystemPath(path);
 			if (makePreferred) {
 				result.MakePreferred();
 			}
@@ -447,7 +431,7 @@ namespace sakura{
 
 		static FileSystemPath FromScriptStr(const std::string& path, bool makePreferred = false)
 		{
-			FileSystemPath result = FileSystemPath(path, CharsetType::Script);
+			FileSystemPath result = FileSystemPath(ScriptToFileSystem(path));
 			if (makePreferred) {
 				result.MakePreferred();
 			}
@@ -457,68 +441,28 @@ namespace sakura{
 		//ファイルシステム側の文字コードで文字列を取得
 		std::string GetFileSystemStr() const
 		{
-			if (charset == CharsetType::Script) {
-				return ScriptToFileSystem(body.string());
-			}
 			return body.string();
 		}
 
 		//スクリプト側の文字コードで文字列を取得
 		std::string GetScriptStr() const
 		{
-			if (charset == CharsetType::FileSystem) {
-				return FileSystemToScript(body.string());
-			}
-			return body.string();
-		}
-
-		void Append(const std::string& n, CharsetType charset)
-		{
-			if (this->charset != charset)
-			{
-				if (this->charset == CharsetType::Script) {
-					body.append(FileSystemToScript(n));
-				}
-				else if (this->charset == CharsetType::FileSystem) {
-					body.append(ScriptToFileSystem(n));
-				}
-				else {
-					assert(false);
-				}
-			}
-			body.append(n);
+			return FileSystemToScript(body.string());
 		}
 
 		void AppendScript(const std::string& n)
 		{
-			Append(n, CharsetType::Script);
+			body.append(ScriptToFileSystem(n));
 		}
 
 		void AppendFileSystem(const std::string& n)
 		{
-			Append(n, CharsetType::FileSystem);
-		}
-
-		//内部文字コードを変換
-		void ConvertToFileSystem()
-		{
-			if (this->charset != CharsetType::FileSystem) {
-				body = std::filesystem::path(ScriptToFileSystem(body.string()));
-				charset = CharsetType::FileSystem;
-			}
-		}
-
-		void ConvertToScript()
-		{
-			if (this->charset != CharsetType::Script) {
-				body = std::filesystem::path(FileSystemToScript(body.string()));
-				charset = CharsetType::Script;
-			}
+			body.append(n);
 		}
 
 		FileSystemPath GetParent() const
 		{
-			return FileSystemPath(body.parent_path(), charset);
+			return FileSystemPath(body.parent_path());
 		}
 
 		void MakePreferred()
