@@ -223,7 +223,7 @@ namespace sakura {
 
 		//TODO: relativePathといいつつ絶対パスを考慮してるので考える⋯
 		std::string GetFileName(const std::string& relativePath) const {
-			if (std::filesystem::path(Utf8ToFileSystem(relativePath)).is_absolute()) {
+			if (std::filesystem::path(relativePath).is_absolute()) {
 				//絶対パスだったらなにもしない
 				return relativePath;
 			}
