@@ -82,7 +82,7 @@ int main(int argc, char* argv[])
 
 	if (opts.showHelp) {
 		std::cout <<
-			"Usage: aosora [options] [EventId] [Reference...]\n"
+			"Usage: aosora-console [options] [EventId] [Reference...]\n"
 			"\n"
 			"Options:\n"
 			"  --version   バージョンを表示して終了\n"
@@ -112,6 +112,7 @@ int main(int argc, char* argv[])
 	sakura::ShioriRequest request;
 	sakura::ShioriResponse response;
 
+	request.SetSecurityLevel(sakura::SecurityLevel::LOCAL);
 	if (opts.eventId.has_value()) {
 		request.SetEventId(opts.eventId.value());
 		for (int i = 0; i < static_cast<int>(opts.references.size()); ++i) {
