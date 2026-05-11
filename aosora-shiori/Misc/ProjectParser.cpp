@@ -11,7 +11,7 @@ namespace sakura {
 
 	void LoadProjectFile(std::ifstream& loadStream, ProjectSettings& projectSettings, const std::string& basePath, bool isUnitFile, bool isForceDisableDebugSystem) {
 		std::string line;
-		std::string fsBasePath = Utf8ToFileSystem(basePath);
+		const FileSystemPath fsBasePath = FileSystemPath::FromScriptStr(basePath);
 
 		while (std::getline(loadStream, line)) {
 #if !(defined(WIN32) || defined(_WIN32))
@@ -97,9 +97,10 @@ namespace sakura {
 			else
 			{
 				//カンマがない行はロードするファイルの列挙
-				std::filesystem::path path(fsBasePath);
-				path.append(Utf8ToFileSystem(line));
-				std::string pathStr = path.make_preferred().string();
+				FileSystemPath path = fsBasePath;
+				path.AppendScript(line);
+				path.MakePreferred();
+				std::string pathStr = path.GetScriptStr();
 				if (projectSettings.scriptFilesSet.insert(pathStr).second) {
 					projectSettings.scriptFiles.push_back(pathStr);
 				}
@@ -107,15 +108,14 @@ namespace sakura {
 		}
 	}
 
-	void LoadProjectDirectory(const std::string& ghostMasterPath, ProjectSettings& projectSettings, bool isForceDisableDebugSystem) {
-		std::filesystem::path gmp(ghostMasterPath);
+	void LoadProjectDirectory(const FileSystemPath& ghostMasterPath, ProjectSettings& projectSettings, bool isForceDisableDebugSystem) {
 
 		//言語ファイル
 		{
-			std::filesystem::path asLangPath = gmp;
-			asLangPath.append("ghost.aslang");
+			FileSystemPath asLangPath = ghostMasterPath;
+			asLangPath.AppendScript("ghost.aslang");
 
-			std::ifstream langStream(asLangPath.string(), std::ios_base::in);
+			std::ifstream langStream(asLangPath.GetFileSystemStr(), std::ios_base::in);
 			if (!langStream.fail()) {
 				std::string langLine;
 				while (std::getline(langStream, langLine)) {
@@ -129,16 +129,16 @@ namespace sakura {
 
 		//プロジェクトファイルをロード
 		{
-			std::filesystem::path asProjPath = gmp;
-			asProjPath.append("ghost.asproj");
-			std::ifstream settingsStream(asProjPath.string(), std::ios_base::in);
+			FileSystemPath asProjPath = ghostMasterPath;
+			asProjPath.AppendScript("ghost.asproj");
+			std::ifstream settingsStream(asProjPath.GetFileSystemStr(), std::ios_base::in);
 			if (settingsStream.fail()) {
 				ScriptParseErrorData errorData;
 				errorData.errorCode = ERROR_SHIORI_001;
 				errorData.message = TextSystem::Find(std::string("ERROR_MESSAGE") + ERROR_SHIORI_001);
 				errorData.hint = TextSystem::Find(std::string("ERROR_HINT") + ERROR_SHIORI_001);
 
-				projectSettings.scriptLoadErrors.push_back(ScriptParseError(errorData, SourceCodeRange(std::shared_ptr<SourceFilePath>(new SourceFilePath("ghost.asproj", asProjPath.string())), 0, 0, 0, 0)));
+				projectSettings.scriptLoadErrors.push_back(ScriptParseError(errorData, SourceCodeRange(std::shared_ptr<SourceFilePath>(new SourceFilePath("ghost.asproj", asProjPath.GetScriptStr())), 0, 0, 0, 0)));
 				return;
 			}
 			LoadProjectFile(settingsStream, projectSettings, "", false, isForceDisableDebugSystem);
@@ -146,9 +146,9 @@ namespace sakura {
 		
 		//デバッグ用の設定ファイルをロードする
 		{
-			std::filesystem::path debugProjPath = gmp;
-			debugProjPath.append("debug.asproj");
-			std::ifstream settingsStream(debugProjPath.string(), std::ios_base::in);
+			FileSystemPath debugProjPath = ghostMasterPath;
+			debugProjPath.AppendScript("debug.asproj");
+			std::ifstream settingsStream(debugProjPath.GetFileSystemStr(), std::ios_base::in);
 			if (!settingsStream.fail()) {
 				LoadProjectFile(settingsStream, projectSettings, "", false, isForceDisableDebugSystem);
 			}
@@ -157,10 +157,10 @@ namespace sakura {
 		//列挙されたユニットファイルを
 		{
 			for (size_t i = 0; i < projectSettings.unitFiles.size(); i++) {
-				std::filesystem::path unitFilePath = gmp;
+				FileSystemPath unitFilePath = ghostMasterPath;
 				std::string target = projectSettings.unitFiles[i];
-				unitFilePath.append(target);
-				std::ifstream settingsStream(unitFilePath);
+				unitFilePath.AppendScript(target);
+				std::ifstream settingsStream(unitFilePath.GetFileSystemStr());
 
 				if (settingsStream.fail()) {
 					//読み込みエラー
@@ -168,11 +168,11 @@ namespace sakura {
 					errorData.errorCode = ERROR_SHIORI_003;
 					errorData.message = TextSystem::Find(std::string("ERROR_MESSAGE") + ERROR_SHIORI_003);
 					errorData.hint = TextSystem::Find(std::string("ERROR_HINT") + ERROR_SHIORI_003);
-					projectSettings.scriptLoadErrors.push_back(ScriptParseError(errorData, SourceCodeRange(std::shared_ptr<SourceFilePath>(new SourceFilePath(target, ghostMasterPath + target)), 0, 0, 0, 0)));
+					projectSettings.scriptLoadErrors.push_back(ScriptParseError(errorData, SourceCodeRange(std::shared_ptr<SourceFilePath>(new SourceFilePath(target, unitFilePath.GetScriptStr())), 0, 0, 0, 0)));
 					return;
 				}
 
-				LoadProjectFile(settingsStream, projectSettings, std::filesystem::path(target).parent_path().string(), true, isForceDisableDebugSystem);
+				LoadProjectFile(settingsStream, projectSettings, FileSystemPath::FromScriptStr(target).GetParent().GetScriptStr(), true, isForceDisableDebugSystem);
 			}
 		}
 		

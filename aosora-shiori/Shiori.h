@@ -10,7 +10,7 @@ namespace sakura {
 	//SHIORIとしての実装相当部分
 	class Shiori {
 	private:
-		std::string ghostMasterPath;
+		FileSystemPath ghostMasterPath;
 		ScriptInterpreter interpreter;
 		std::map<std::string, std::string> shioriInfo;
 		bool isBooted;
@@ -69,7 +69,7 @@ namespace sakura {
 
 		//コンソール出力用のエラー情報取得
 		std::string GetErrorsString();
-		const std::string& GetGhostMasterPath() const { return ghostMasterPath; }
+		std::string GetGhostMasterPath() const { return ghostMasterPath.GetScriptStr(); }
 
 		//デバッグ機能の強制的な無効化（aosora-sstpでデバッグ機能を動作させないようにするためのもの）
 		void SetForceDisableDebugSystem(bool isDisable) { isForceDisableDebugSystem = isDisable; }

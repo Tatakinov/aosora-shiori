@@ -33,5 +33,5 @@ namespace sakura {
 	};
 
 	void LoadProjectFile(std::ifstream& loadStream, ProjectSettings& projectSettings, const std::string& basePath, bool isUnitFile, bool isForceDisableDebugSystem);
-	void LoadProjectDirectory(const std::string& ghostMasterPath, ProjectSettings& projectSettings, bool isForceDisableDebugSystem);
+	void LoadProjectDirectory(const FileSystemPath& ghostMasterPath, ProjectSettings& projectSettings, bool isForceDisableDebugSystem);
 }

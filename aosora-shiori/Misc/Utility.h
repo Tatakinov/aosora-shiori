@@ -6,6 +6,8 @@
 #include <sstream>
 #include <vector>
 #include <random>
+#include <cassert>
+#include <filesystem>
 #include "Version.h"
 #include "Base.h"
 
@@ -167,7 +169,6 @@ namespace sakura{
 	//文字コード変換
 	std::string SjisToUtf8(const std::string& input);
 	std::string Utf8ToSjis(const std::string& input);
-	std::string Utf8ToFileSystem(const std::string& input);
 
 	//先頭バイトからUTF-8で何バイトか取得
 	inline size_t GetUnicodeByteCount(uint8_t firstByte) {
@@ -391,6 +392,139 @@ namespace sakura{
 
 		//プロセス起動
 		//static bool ExecuteProcess();
+	};
+
+	//ファイルシステムパスの文字コードとスクリプト側の文字コードの差異を吸収するためのパスオブジェクト
+	class FileSystemPath
+	{
+	public:
+		enum class CharsetType
+		{
+			Script,			//スクリプト側の文字コード
+			FileSystem		//ファイルシステム側の文字コード
+		};
+
+	private:
+		CharsetType charset;			//内部表現タイプ
+		std::filesystem::path body;
+
+		FileSystemPath(const std::filesystem::path& path, CharsetType charset) :
+			charset(charset),
+			body(path)
+		{
+		}
+
+		FileSystemPath(CharsetType charset) :
+			charset(charset),
+			body()
+		{
+		}
+
+		//将来的にロケールによって文字コードを選ぶなどの対応？
+		static std::string ScriptToFileSystem(const std::string& input) {
+			return Utf8ToSjis(input);
+		}
+
+		static std::string FileSystemToScript(const std::string& input) {
+			return SjisToUtf8(input);
+		}
+
+	public:
+		FileSystemPath():
+			charset(CharsetType::Script),
+			body()
+		{ }
+
+		//初期化
+		static FileSystemPath FromFileSystemStr(const std::string& path, bool makePreferred = false)
+		{
+			FileSystemPath result = FileSystemPath(path, CharsetType::FileSystem);
+			if (makePreferred) {
+				result.MakePreferred();
+			}
+			return result;
+		}
+
+		static FileSystemPath FromScriptStr(const std::string& path, bool makePreferred = false)
+		{
+			FileSystemPath result = FileSystemPath(path, CharsetType::Script);
+			if (makePreferred) {
+				result.MakePreferred();
+			}
+			return result;
+		}
+
+		//ファイルシステム側の文字コードで文字列を取得
+		std::string GetFileSystemStr() const
+		{
+			if (charset == CharsetType::Script) {
+				return ScriptToFileSystem(body.string());
+			}
+			return body.string();
+		}
+
+		//スクリプト側の文字コードで文字列を取得
+		std::string GetScriptStr() const
+		{
+			if (charset == CharsetType::FileSystem) {
+				return FileSystemToScript(body.string());
+			}
+			return body.string();
+		}
+
+		void Append(const std::string& n, CharsetType charset)
+		{
+			if (this->charset != charset)
+			{
+				if (this->charset == CharsetType::Script) {
+					body.append(FileSystemToScript(n));
+				}
+				else if (this->charset == CharsetType::FileSystem) {
+					body.append(ScriptToFileSystem(n));
+				}
+				else {
+					assert(false);
+				}
+			}
+			body.append(n);
+		}
+
+		void AppendScript(const std::string& n)
+		{
+			Append(n, CharsetType::Script);
+		}
+
+		void AppendFileSystem(const std::string& n)
+		{
+			Append(n, CharsetType::FileSystem);
+		}
+
+		//内部文字コードを変換
+		void ConvertToFileSystem()
+		{
+			if (this->charset != CharsetType::FileSystem) {
+				body = std::filesystem::path(ScriptToFileSystem(body.string()));
+				charset = CharsetType::FileSystem;
+			}
+		}
+
+		void ConvertToScript()
+		{
+			if (this->charset != CharsetType::Script) {
+				body = std::filesystem::path(FileSystemToScript(body.string()));
+				charset = CharsetType::Script;
+			}
+		}
+
+		FileSystemPath GetParent() const
+		{
+			return FileSystemPath(body.parent_path(), charset);
+		}
+
+		void MakePreferred()
+		{
+			body.make_preferred();
+		}
 	};
 
 	//aosoraバージョン取得(major, minor, release)

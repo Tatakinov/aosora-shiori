@@ -46,7 +46,7 @@ namespace sakura {
 	void Shiori::Load(const std::string& path) {
 
 		ProjectSettings projectSettings;
-		ghostMasterPath = std::filesystem::path(path).make_preferred().string();
+		ghostMasterPath = FileSystemPath::FromFileSystemStr(path, true);
 		interpreter.SetWorkingDirectory(path);
 
 #if 0
@@ -260,8 +260,9 @@ namespace sakura {
 	}
 
 	std::shared_ptr<const ASTParseResult> Shiori::LoadScriptFile(const std::string& path) {
-		std::string fullPath = ghostMasterPath + path;
-		std::ifstream loadStream(fullPath, std::ios_base::in);
+		FileSystemPath fullPath = ghostMasterPath;
+		fullPath.AppendScript(path);
+		std::ifstream loadStream(fullPath.GetFileSystemStr(), std::ios_base::in);
 
 		if (loadStream.fail()) {
 
@@ -273,12 +274,12 @@ namespace sakura {
 			//ファイルがなければ打ち切る
 			auto* errorResult = new ASTParseResult();
 			errorResult->success = false;
-			errorResult->error.reset(new ScriptParseError(errorData, SourceCodeRange(std::shared_ptr<SourceFilePath>(new SourceFilePath(path, fullPath)), 0,0,0,0)));
+			errorResult->error.reset(new ScriptParseError(errorData, SourceCodeRange(std::shared_ptr<SourceFilePath>(new SourceFilePath(path, fullPath.GetScriptStr())), 0,0,0,0)));
 			return std::shared_ptr<const ASTParseResult>(errorResult);
 		}
 
 		std::string fileBody = std::string(std::istreambuf_iterator<char>(loadStream), std::istreambuf_iterator<char>());
-		return LoadScriptString(fileBody, SourceFilePath(path, fullPath));
+		return LoadScriptString(fileBody, SourceFilePath(path, fullPath.GetScriptStr()));
 	}
 
 	std::shared_ptr<const ASTParseResult> Shiori::LoadScriptString(const std::string& script, const SourceFilePath& filePath) {
