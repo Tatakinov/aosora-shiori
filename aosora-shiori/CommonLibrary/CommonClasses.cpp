@@ -734,6 +734,15 @@ namespace sakura {
 			stream->flush();
 		}
 
+		//標準出力にも送る
+		if (request.GetContext().GetInterpreter().IsEnableConsoleIO()) {
+			if (node != nullptr) {
+				//出力元のスクリプト位置をとっておく
+				std::cout << node->GetSourceRange().ToString() << " ";
+			}
+			std::cout << data << std::endl;
+		}
+
 		if (node != nullptr) {
 			//デバッグ出力
 			Debugger::NotifyLog(data, *node, false);
@@ -788,26 +797,13 @@ namespace sakura {
 		if (request.GetArgumentCount() == 0) {
 			return;
 		}
+		if (!request.GetContext().GetInterpreter().IsEnableConsoleIO()) {
+			return;
+		}
 
 		DebugOutputContext debugOutputContext;
 		std::string data = request.GetArgument(0)->ToString();
-		DebugOut(data.c_str());
 
-		/*
-		const ASTNodeBase* node = request.GetContext().GetLatestASTNode();
-
-		std::ofstream* const stream = request.GetContext().GetInterpreter().GetDebugOutputStream();
-		if (stream != nullptr) {
-			if (node != nullptr) {
-				//出力元のスクリプト位置をとっておく
-				*stream << node->GetSourceRange().ToString() << " ";
-			}
-			*stream << data << std::endl;
-			stream->flush();
-		}
-		*/
-
-		
 		//コンソール出力
 		std::cout << data << std::endl;
 	}

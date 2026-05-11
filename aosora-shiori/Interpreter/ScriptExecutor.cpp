@@ -1642,7 +1642,8 @@ namespace sakura {
 		limitScriptSteps(DEFAULT_EXECUTE_LIMIT_STEPS),
 		scriptClassCount(0),
 		debugOutputStream(nullptr),
-		isDebuggerScope(false)
+		isDebuggerScope(false),
+		isEnableConsoleIO(false)
 	{
 		//組み込みのクラスを登録
 		RegisterNativeFunction("print", &ScriptInterpreter::Print);

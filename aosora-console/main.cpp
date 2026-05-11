@@ -82,7 +82,7 @@ int main(int argc, char* argv[])
 
 	if (opts.showHelp) {
 		std::cout <<
-			"Usage: aosora-console [options] [EventId] [Reference...]\n"
+			"Usage: aosora [options] [EventId] [Reference...]\n"
 			"\n"
 			"Options:\n"
 			"  --version   バージョンを表示して終了\n"
@@ -93,6 +93,7 @@ int main(int argc, char* argv[])
 
 	//SHIORI同様にaosoraを起動
 	sakura::Shiori* aosoraShiori = new sakura::Shiori();
+	aosoraShiori->SetEnableConsoleIO(true);
 	aosoraShiori->Load(std::filesystem::current_path().string() + "\\");
 
 	//エラーがあればコンソール出力

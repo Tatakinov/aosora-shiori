@@ -150,6 +150,9 @@ namespace sakura {
 		//デバッガ処理中
 		bool isDebuggerScope;
 
+		//コンソール入出力の使用可能
+		bool isEnableConsoleIO;
+
 	private:
 		void CallFunctionInternal(const ScriptValue& funcVariable, const std::vector<ScriptValueRef>& args, ScriptInterpreterStack& funcStack, FunctionResponse& response);
 
@@ -210,6 +213,17 @@ namespace sakura {
 		bool IsAllowLocalAccess() const {
 			//local時のみ
 			return GetSecurityLevel() == SecurityLevel::LOCAL;
+		}
+
+		//コンソール入出力の使用可能フラグ
+		void SetEnableConsoleIO(bool enable)
+		{
+			isEnableConsoleIO = enable;
+		}
+
+		bool IsEnableConsoleIO()
+		{
+			return isEnableConsoleIO;
 		}
 
 		//ワーキングディレクトリ(パス区切り文字終端)

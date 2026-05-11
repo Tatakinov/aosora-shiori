@@ -71,6 +71,9 @@ namespace sakura {
 		std::string GetErrorsString();
 		std::string GetGhostMasterPath() const { return ghostMasterPath.GetScriptStr(); }
 
+		//コンソール入出力の有効化
+		void SetEnableConsoleIO(bool enable) { interpreter.SetEnableConsoleIO(enable); }
+
 		//デバッグ機能の強制的な無効化（aosora-sstpでデバッグ機能を動作させないようにするためのもの）
 		void SetForceDisableDebugSystem(bool isDisable) { isForceDisableDebugSystem = isDisable; }
 		bool IsForceDisableDebugSystem() const { return isForceDisableDebugSystem; }
