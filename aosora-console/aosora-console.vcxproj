@@ -58,19 +58,19 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <TargetName>aosora-console</TargetName>
-    <IntDir>$(Platform)\$(Configuration)\</IntDir>
-    <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+    <TargetName>aosora</TargetName>
+    <IntDir>$(Platform)\$(Configuration)\console\</IntDir>
+    <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\console\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Deploy|Win32'">
-    <TargetName>aosora-console</TargetName>
-    <IntDir>$(Platform)\$(Configuration)\</IntDir>
-    <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+    <TargetName>aosora</TargetName>
+    <IntDir>$(Platform)\$(Configuration)\console\</IntDir>
+    <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\console\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <TargetName>aosora-console</TargetName>
-    <IntDir>$(Platform)\$(Configuration)\</IntDir>
-    <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+    <TargetName>aosora</TargetName>
+    <IntDir>$(Platform)\$(Configuration)\console\</IntDir>
+    <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\console\</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
