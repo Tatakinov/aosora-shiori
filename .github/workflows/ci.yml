@@ -40,10 +40,13 @@ jobs:
         shell: cmd
         run: |
           mkdir temp-github
+          mkdir temp-github\console
           copy /Y vscode-extension\vscode-extension.vsix temp-github\vscode-extension.vsix
           copy /Y ssp\ghost\test\demo.zip temp-github\demo.nar
           copy /Y Win32\Deploy\aosora.dll temp-github\aosora.dll
           copy /Y Win32\Deploy\aosora.pdb temp-github\aosora.pdb
+          copy /Y Win32\Deploy\console\aosora.exe temp-github\console\aosora.exe
+          copy /Y Win32\Deploy\console\aosora.pdb temp-github\console\aosora.pdb
 
       - name: upload
         uses: actions/upload-artifact@v4
