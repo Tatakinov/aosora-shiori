@@ -644,6 +644,32 @@ namespace sakura {
 		}
 	}
 
+	void Regex::ScriptReplaceCapture(const FunctionRequest& request, FunctionResponse& response)
+	{
+		if (request.GetArgumentCount() >= 3) {
+			std::string target = request.GetArgument(0)->ToString();
+			std::string pattern = request.GetArgument(1)->ToString();
+			std::string replaced = request.GetArgument(2)->ToString();
+			std::smatch matchResult;
+			std::regex pat;
+
+			try {
+				pat = std::regex(pattern);
+			}
+			catch (std::exception&) {
+				response.SetThrewError(request.GetInterpreter().CreateNativeObject<RuntimeError>(TextSystem::Find("AOSORA_REGEX_INVALID_PATTERN")));
+				return;
+			}
+
+			//キャプチャ置換はそのままregex_replaceでよい
+			std::string resultString = std::regex_replace(target, pat, replaced);
+			response.SetReturnValue(ScriptValue::Make(resultString));
+		}
+		else {
+			response.SetThrewError(request.GetInterpreter().CreateNativeObject<RuntimeError>(TextSystem::Find("AOSORA_COMMON_ERROR_002")));
+		}
+	}
+
 	void Regex::ScriptMatchAll(const FunctionRequest& request, FunctionResponse& response) {
 		if (request.GetArgumentCount() >= 2) {
 			std::string target = request.GetArgument(0)->ToString();
@@ -709,6 +735,9 @@ namespace sakura {
 		}
 		else if (key == "Replace") {
 			return ScriptValue::Make(executeContext.GetInterpreter().CreateNativeObject<Delegate>(&Regex::ScriptReplace));
+		}
+		else if (key == "ReplaceCapture") {
+			return ScriptValue::Make(executeContext.GetInterpreter().CreateNativeObject<Delegate>(&Regex::ScriptReplaceCapture));
 		}
 		else if (key == "IsValid") {
 			return ScriptValue::Make(executeContext.GetInterpreter().CreateNativeObject<Delegate>(&Regex::ScriptIsValid));
