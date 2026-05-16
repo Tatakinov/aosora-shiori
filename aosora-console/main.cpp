@@ -94,7 +94,7 @@ int main(int argc, char* argv[])
 	//SHIORI同様にaosoraを起動
 	sakura::Shiori* aosoraShiori = new sakura::Shiori();
 	aosoraShiori->SetEnableConsoleIO(true);
-	aosoraShiori->Load(std::filesystem::current_path().string() + "\\");
+	aosoraShiori->Load(std::filesystem::current_path().string());
 
 	//エラーがあればコンソール出力
 	if (aosoraShiori->HasScriptLoadError()) {
