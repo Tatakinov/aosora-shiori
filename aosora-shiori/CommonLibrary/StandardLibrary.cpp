@@ -633,7 +633,7 @@ namespace sakura {
 					break;
 				}
 				//一致箇所をリプレース
-				resultString.append(target.substr(0, matchResult.position()));
+				resultString.append(target.substr(index, matchResult.position()));
 				resultString.append(replaced);
 				index += matchResult.position() + matchResult.length();
 			}
