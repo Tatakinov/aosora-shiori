@@ -623,6 +623,12 @@ namespace sakura {
 				return;
 			}
 
+			//対象化パターンが空っぽの場合は省略
+			if (target.empty() || pattern.empty()) {
+				response.SetReturnValue(ScriptValue::Make(target));
+				return;
+			}
+
 			size_t index = 0;
 			std::string resultString;
 
@@ -658,6 +664,12 @@ namespace sakura {
 			}
 			catch (std::exception&) {
 				response.SetThrewError(request.GetInterpreter().CreateNativeObject<RuntimeError>(TextSystem::Find("AOSORA_REGEX_INVALID_PATTERN")));
+				return;
+			}
+
+			//対象化パターンが空っぽの場合は省略
+			if (target.empty() || pattern.empty()) {
+				response.SetReturnValue(ScriptValue::Make(target));
 				return;
 			}
 
