@@ -52,6 +52,19 @@ namespace sakura {
 		}
 	}
 	
+	//ルートブロックスコープを設定
+	void ClassData::SetRootBlockScope(const Reference<BlockScope>& scope) {
+		rootBlockScope = scope;
+
+		//構築済みのメソッドにブロックスコープを設定する
+		for (auto& m : methods) {
+			m.second->SetBlockScope(scope);
+		}
+
+		for (auto& m : staticMethods) {
+			m.second->SetBlockScope(scope);
+		}
+	}
 	
 	void ClassData::SetToInstance(const std::string& key, const ScriptValueRef& value, const Reference<ClassInstance>& instance, ScriptExecuteContext& executeContext) {
 
@@ -107,6 +120,10 @@ namespace sakura {
 
 		for (auto kv : staticMethods) {
 			result.push_back(kv.second.Get());
+		}
+
+		if (rootBlockScope != nullptr) {
+			result.push_back(rootBlockScope.Get());
 		}
 	}
 

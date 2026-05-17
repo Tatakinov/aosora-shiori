@@ -1586,13 +1586,13 @@ namespace sakura {
 		}
 	}
 
-	//ルートステートメント実行
-	ToStringFunctionCallResult ScriptInterpreter::Execute(const ConstASTNodeRef& node, bool toStringResult, bool isRootCall) {
+	//スクリプトのエントリポイントAST実行
+	ToStringFunctionCallResult ScriptInterpreter::Execute(const ConstASTNodeRef& node, bool toStringResult) {
 
 		//ユニットを登録
 		RegisterUnit(node->GetScriptUnit()->GetUnit());
 
-		ScriptInterpreterStack rootStack(isRootCall);
+		ScriptInterpreterStack rootStack(false);
 		Reference<BlockScope> rootBlock = CreateNativeObject<BlockScope>(nullptr);
 		ScriptExecuteContext executeContext(*this, rootStack, rootBlock);
 		ScriptExecutor::ExecuteASTNode(*node, executeContext);
@@ -1603,6 +1603,33 @@ namespace sakura {
 			result.error = rootStack.GetThrewError();
 		}
 		else if(toStringResult) {
+			return rootStack.GetReturnValue()->ToStringWithFunctionCall(*this);
+		}
+		else {
+			//成功だけ返す
+			result.success = true;
+		}
+		return result;
+	}
+
+	//スクリプトのルートブロックを実行
+	//外部と共有できるように外側からブロックスコープデータを渡す
+	ToStringFunctionCallResult ScriptInterpreter::ExecuteRootBlock(const ConstASTNodeRef& node, bool toStringResult, Reference<BlockScope> rootBlockScope)
+	{
+		//ユニットを登録
+		RegisterUnit(node->GetScriptUnit()->GetUnit());
+
+		ScriptInterpreterStack rootStack(true);
+		Reference<BlockScope> rootBlock = rootBlockScope;
+		ScriptExecuteContext executeContext(*this, rootStack, rootBlock);
+		ScriptExecutor::ExecuteASTNode(*node, executeContext);
+
+		ToStringFunctionCallResult result;
+		if (rootStack.IsThrew()) {
+			result.success = false;
+			result.error = rootStack.GetThrewError();
+		}
+		else if (toStringResult) {
 			return rootStack.GetReturnValue()->ToStringWithFunctionCall(*this);
 		}
 		else {
@@ -1944,9 +1971,9 @@ namespace sakura {
 	//クラスインスタンス生成
 	ObjectRef ScriptInterpreter::NewClassInstance(const ScriptValueRef& classData, const std::vector<ScriptValueRef>& args, ScriptExecuteContext& context) {
 
+		//まずクラスを取得
 		ClassData* c = context.GetInterpreter().InstanceAs<ClassData>(classData);
 		if (c != nullptr) {
-			//まずクラスを取得
 			return NewClassInstance(c, args, context, nullptr);
 		}
 		else {
@@ -1966,7 +1993,7 @@ namespace sakura {
 
 			//コンストラクタ用のスタックフレームとブロックスコープを作成して引数を登録
 			ScriptInterpreterStack initStack = context.GetStack().CreateChildStackFrame(context.GetCurrentASTNode(), context.GetBlockScope(), "init");
-			Reference<BlockScope> initScope = context.GetInterpreter().CreateNativeObject<BlockScope>(context.GetBlockScope());
+			Reference<BlockScope> initScope = context.GetInterpreter().CreateNativeObject<BlockScope>(classData->GetRootBlockScope());
 
 			ScriptExecuteContext funcContext(*this, initStack, initScope);
 

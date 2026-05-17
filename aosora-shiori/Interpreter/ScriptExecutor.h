@@ -318,7 +318,8 @@ namespace sakura {
 		std::string GetClassTypeName(uint32_t typeId);
 
 		//ASTをインタプリタに渡して実行
-		ToStringFunctionCallResult Execute(const ConstASTNodeRef& node, bool toStringResult, bool isRootCall = false);
+		ToStringFunctionCallResult Execute(const ConstASTNodeRef& node, bool toStringResult);
+		ToStringFunctionCallResult ExecuteRootBlock(const ConstASTNodeRef& node, bool toStringResult, Reference<BlockScope> rootBlockScope);
 
 		//文字列をスクリプト式として評価
 		EvaluateExpressionResult Eval(const std::string& expr, ScriptExecuteContext& executeContext, const ScriptSourceMetadataRef& importSourceMeta);

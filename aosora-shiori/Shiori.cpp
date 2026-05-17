@@ -183,12 +183,19 @@ namespace sakura {
 		}
 
 		//ルートスクリプト実行
-		for (auto item : parsedFileList) {
+		for (const auto& item : parsedFileList) {
 
 			//通常実行にあわせてステップ数のリセット、GCを行う。SecurityLevelはLocal固定
 			interpreter.ResetScriptStep();
 			interpreter.SetSecurityLevel(SecurityLevel::LOCAL);
-			auto rootResult = interpreter.Execute(item->root, false, true);
+
+			//ルートブロックスコープを作成して、ルートブロックの実行とクラスで共有する
+			Reference<BlockScope> rootBlock = interpreter.CreateNativeObject<BlockScope>(nullptr);
+			for (const auto& cls : item->classMap) {
+				auto clsData = interpreter.InstanceAs<ClassData>(interpreter.GetClass(cls.second->GetTypeId()));
+				clsData->SetRootBlockScope(rootBlock);
+			}
+			auto rootResult = interpreter.ExecuteRootBlock(item->root, false, rootBlock);
 			interpreter.CollectObjects();
 
 			if (!rootResult.success) {

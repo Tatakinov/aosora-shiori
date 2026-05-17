@@ -176,6 +176,9 @@ namespace sakura {
 		//static領域
 		Reference<ScriptObject> scriptStaticData;
 
+		//classが定義されているソースのルートブロックスコープ、メソッドからこのブロックを触れるかたち
+		Reference<BlockScope> rootBlockScope;
+
 		//メソッド情報
 		std::map<std::string, Reference<OverloadedFunctionList>>  methods;
 
@@ -205,6 +208,13 @@ namespace sakura {
 
 		const Reference<ClassData>& GetParentClass() {
 			return parentClass;
+		}
+
+		//ルートブロックスコープを設定
+		void SetRootBlockScope(const Reference<BlockScope>& scope);
+
+		const Reference<BlockScope>& GetRootBlockScope() const {
+			return rootBlockScope;
 		}
 
 		//子以降のアップキャスト関係にある型を追加
@@ -431,6 +441,13 @@ namespace sakura {
 
 		SelectorMode GetSelectorMode() const {
 			return selectorMode;
+		}
+
+		//ブロックスコープを外部から設定
+		void SetBlockScope(const Reference<BlockScope>& scope) {
+			for (auto& f : functions) {
+				f.blockScope = scope;
+			}
 		}
 
 		static void ScriptReturnThisFunc(const FunctionRequest& request, FunctionResponse& response);
